@@ -15,7 +15,7 @@ const waterLevel = -32;
 let water;
 
 const textureLoader = new THREE.TextureLoader();
-const waterNormals = textureLoader.load('./waternormals.jpg', function (texture) {
+const waterNormals = textureLoader.load('./assets/waternormals.jpg', function (texture) {
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
 });
 
