@@ -1,18 +1,26 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
+import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 // Importer les modules (si vous les avez séparés)
 import { createHexGrid } from './terrain.js';
+import {initLights} from './lights.js'; 
+import {updateSun} from './sun.js';
 
 let scene, camera, renderer, controls;
 let gridCenterX = 0, gridCenterZ = 0;
-let sunLight, sunMesh, sunAngle = 0, sunSpeed = 0.01;
-const sunOrbitRadius = 500;
-const maxHeight = 100;
 
-const waterLevel = -32;
 let water;
+let stats;
+
+// Ajouter les statistiques FPS
+if (typeof document !== 'undefined') {
+  stats = Stats();
+  document.body.appendChild(stats.dom);
+}
+
+let instancedTopMesh;
 
 const textureLoader = new THREE.TextureLoader();
 const waterNormals = textureLoader.load('./assets/waternormals.jpg', function (texture) {
@@ -20,8 +28,6 @@ const waterNormals = textureLoader.load('./assets/waternormals.jpg', function (t
 });
 
 let hexMeshes = []; // Tableau pour stocker les hexagones individuels
-let raycaster = new THREE.Raycaster();
-let mouse = new THREE.Vector2();
 let selectedHex = null; // Hexagone actuellement sélectionné
 
 const hexRadius = 5;
@@ -29,6 +35,19 @@ const rows = 50;
 const cols = 50;
 
 let hexWidth, hexHeight, verticalSpacing;
+const waterHeight = 20; // Variable unique pour la hauteur de l'eau
+
+  
+// Configurer les lumières
+const {ambientLight, sunLight} = initLights();
+const sunGeometry = new THREE.SphereGeometry(30, 32, 32);
+const sunMaterial = new THREE.MeshBasicMaterial({
+  color: 0xffff00,
+  emissive: 0xffff00,
+  emissiveIntensity: 1,
+});
+const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
+sunMesh.position.copy(sunLight.position);
 
 function init() {
   // Initialiser la scène
@@ -51,10 +70,11 @@ function init() {
   controls.screenSpacePanning = false; 
   controls.maxPolarAngle = Math.PI / 2;
   controls.enablePan = false;
-  
-  // Configurer les lumières
-  initLights();
-  
+
+  scene.add(sunMesh);
+  scene.add(ambientLight);
+  scene.add(sunLight);
+
   // Créer le terrain
   createTerrain();
 
@@ -68,47 +88,6 @@ function init() {
   animate();
 }
 
-function initLights() {
-  // Lumière directionnelle
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(100, 100, 100);
-  scene.add(light); 
-  
-  // Lumière ambiante
-  const ambientLight = new THREE.AmbientLight(0x404040);
-  scene.add(ambientLight);
-  
-  // Lumière du soleil
-  initSunLight();
-}
-
-function initSunLight() {
-  sunLight = new THREE.DirectionalLight(0xffffff, 1);
-  sunLight.position.set(0, 500, 0);
-  sunLight.castShadow = true;
-  
-  sunLight.shadow.mapSize.width = 2048;
-  sunLight.shadow.mapSize.height = 2048;
-  sunLight.shadow.camera.near = 0.5;
-  sunLight.shadow.camera.far = 1000;
-  sunLight.shadow.camera.left = -500;
-  sunLight.shadow.camera.right = 500;
-  sunLight.shadow.camera.top = 500;
-  sunLight.shadow.camera.bottom = -500;
-  
-  scene.add(sunLight);
-  
-  const sunGeometry = new THREE.SphereGeometry(30, 32, 32);
-  const sunMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffff00,
-    emissive: 0xffff00,
-    emissiveIntensity: 1,
-  });
-  sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
-  sunMesh.position.copy(sunLight.position);
-  scene.add(sunMesh);
-}
-
 function createTerrain() {
   // Les variables hexRadius, rows, cols sont déjà globales
   const scale = 100;
@@ -120,7 +99,21 @@ function createTerrain() {
   hexHeight = 2 * hexRadius; // Hauteur effective d'un hexagone
   verticalSpacing = hexHeight * 0.75; // Espacement vertical entre les rangées
 
-  const gridData = createHexGrid(rows, cols, hexRadius, scale, offsetX, offsetY);
+  const instanceCount = rows * cols;
+
+  // Créer la géométrie et le matériau partagés pour les faces supérieures
+  const topGeometry = new THREE.CircleGeometry(hexRadius, 6);
+  topGeometry.rotateX(-Math.PI / 2); // Faire tourner la géométrie pour qu'elle soit horizontale
+  const materialTop = new THREE.MeshStandardMaterial({
+    color: 0x228B22,
+    flatShading: true,
+    metalness: 0,
+    roughness: 1,
+  });
+
+  instancedTopMesh = new THREE.InstancedMesh(topGeometry, materialTop, instanceCount);
+
+  const gridData = createHexGrid(rows, cols, hexRadius, scale, offsetX, offsetY, undefined,instancedTopMesh );
   const hexGrid = gridData.grid;
   gridCenterX = gridData.gridCenterX;
   gridCenterZ = gridData.gridCenterZ;
@@ -149,32 +142,26 @@ function addWater() {
   const gridHeight = (rows - 1) * verticalSpacing + hexHeight;
 
   // **Créer le volume d'eau**
-
-  // Calculer la profondeur de l'eau
-  const waterDepth = maxHeight; // Ajustez selon vos besoins
-
   // Créer la géométrie du volume d'eau
-  const waterVolumeGeometry = new THREE.BoxGeometry(gridWidth, waterDepth, gridHeight);
+  const waterVolumeGeometry = new THREE.BoxGeometry(gridWidth + 5, 25, gridHeight + 5);
 
   // Créer le matériau pour le volume d'eau
   const waterVolumeMaterial = new THREE.MeshPhongMaterial({
-    color: 0x001e0f,
+    color: 0x437a93,
     transparent: true,
-    opacity: 0.1,
-    shininess: 100,
   });
 
   const waterVolume = new THREE.Mesh(waterVolumeGeometry, waterVolumeMaterial);
 
   // Positionner le volume d'eau
-  waterVolume.position.set(gridCenterX, waterLevel - waterDepth / 2, gridCenterZ);
+  waterVolume.position.set(gridCenterX, waterHeight, gridCenterZ);
 
   scene.add(waterVolume);
 
   // **Créer le plan d'eau avec le shader pour la surface**
 
   // Créer la géométrie du plan d'eau
-  const waterSurfaceGeometry = new THREE.PlaneGeometry(gridWidth, gridHeight);
+  const waterSurfaceGeometry = new THREE.PlaneGeometry(gridWidth + 5, gridHeight + 5);
 
   // Créer le matériau d'eau avancé
   water = new Water(
@@ -183,24 +170,20 @@ function addWater() {
       textureWidth: 512,
       textureHeight: 512,
       waterNormals: waterNormals,
-      sunDirection: sunLight.position.clone().normalize(),
+      // sunDirection: sunLight.position.clone().normalize(),
       sunColor: 0xffffff,
-      waterColor: 0x001e0f,
-      distortionScale: 3.7,
+      waterColor: 0x437a93,
+      distortionScale: 5,
       fog: true
     }
   );
 
   // Positionner le plan d'eau
   water.rotation.x = - Math.PI / 2;
-  water.position.set(gridCenterX, waterLevel, gridCenterZ);
+  water.position.set(gridCenterX, waterHeight + 12.6, gridCenterZ);
 
   // Ajuster l'ordre de rendu
-  waterVolume.renderOrder = 1;
-  water.renderOrder = 2;
-
-  // Désactiver l'écriture dans le tampon de profondeur pour le plan d'eau
-  water.material.depthWrite = false;
+  water.renderOrder = 1;
 
   scene.add(water);
 }
@@ -213,61 +196,20 @@ function initEventListeners() {
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
-  updateSun();
+  stats.update();
+  updateSun(sunLight, sunMesh, gridCenterX, gridCenterZ);
 
   // Animer l'eau
   water.material.uniforms['time'].value += 1.0 / 60.0;
-
   renderer.render(scene, camera);
 }
 
-function updateSun() {
-  sunAngle += sunSpeed;
-
-  const sunX = gridCenterX + sunOrbitRadius * Math.cos(sunAngle);
-  const sunZ = gridCenterZ + sunOrbitRadius * Math.sin(sunAngle);
-  const sunY = sunOrbitRadius * Math.sin(sunAngle);
-
-  sunLight.position.set(sunX, sunY, sunZ);
-  sunMesh.position.copy(sunLight.position);
-
-  sunLight.target.position.set(gridCenterX, 0, gridCenterZ);
-  sunLight.target.updateMatrixWorld();
-
-  const sunHeightFactor = Math.max(0, sunY / sunOrbitRadius);
-  sunLight.intensity = 1.2 * sunHeightFactor;
-
-  // Mettre à jour la direction du soleil pour l'eau
-  water.material.uniforms['sunDirection'].value.copy(sunLight.position.clone().normalize());
-}
 
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
 
   renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-function onMouseClick(event) {
-  event.preventDefault();
-
-  // Convertir la position de la souris en coordonnées normalisées (-1 à +1)
-  const rect = renderer.domElement.getBoundingClientRect();
-  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = - ((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-  // Mettre à jour le raycaster
-  raycaster.setFromCamera(mouse, camera);
-
-  // Calculer les objets intersectés
-  const intersects = raycaster.intersectObjects(hexMeshes);
-
-  if (intersects.length > 0) {
-    const intersectedHex = intersects[0].object;
-
-    // Gérer la sélection
-    selectHexagon(intersectedHex);
-  }
 }
 
 function selectHexagon(hex) {
@@ -284,9 +226,39 @@ function selectHexagon(hex) {
     // Sélectionner le nouvel hexagone
     hex.material.color.set(0xff0000); // Changer la couleur pour indiquer la sélection
     selectedHex = hex;
+  }
+}
 
-    // Vous pouvez également exécuter d'autres actions ici
-    // Par exemple, afficher des informations sur l'hexagone sélectionné
+// Gestion du clic pour l'InstancedMesh
+document.addEventListener('click', onMouseClick, false);
+
+function onMouseClick(event) {
+  event.preventDefault();
+
+  // Convertir la position de la souris en coordonnées normalisées (-1 à +1)
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mouse = new THREE.Vector2();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+  // Mettre à jour le raycaster
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+
+  // Vérifier l'intersection avec l'InstancedMesh
+  const intersects = raycaster.intersectObject(instancedTopMesh);
+
+  if (intersects.length > 0) {
+    const intersection = intersects[0];
+    const instanceId = intersection.instanceId;
+
+    if (instanceId !== undefined) {
+      // Utiliser instanceId pour identifier l'hexagone cliqué
+      console.log(`Instance cliquée: ${instanceId}`);
+      // Par exemple, changer la couleur de l'instance cliquée
+      instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xff0000));
+      instancedTopMesh.instanceColor.needsUpdate = true;
+    }
   }
 }
 
