@@ -1,21 +1,20 @@
 import * as THREE from 'three';
 
-import {useSun} from './sun.js';
-import { useControls } from './controls.js';
-import { useWater } from './water.js';
-import { useStats } from './stats.js'
-import { useRenderer } from './renderer.js';
-import { useMap } from './map.js';
+import { useSun } from './src/sun.js';
+import { useControls } from './src/controls.js';
+import { useWater } from './src/water.js';
+import { useStats } from './src/stats.js'
+import { useRenderer } from './src/renderer.js';
+import { useMap } from './src/map.js';
 
-// Default map constantes
-const hexRadius = 5;
-const rows = 60;
-const cols = 60;
+const hexRadius = 3;
+const rows = 100;
+const cols = 100;
 const hexWidth = Math.sqrt(3) * hexRadius;  
 const hexHeight = 2 * hexRadius;
-const verticalSpacing = hexHeight * 0.75; // Espacement vertical entre les rangées
+const verticalSpacing = hexHeight * 0.75;
 const gridWidth = (cols - 1) * hexWidth + hexWidth;
-const gridHeight = (rows - 1) * verticalSpacing + hexHeight;
+const gridHeight = (rows - 1) * verticalSpacing + hexHeight; 
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000);
@@ -26,13 +25,13 @@ const {controls} = useControls(camera, renderer.domElement);
 const {waterSurface, waterVolume} = useWater(gridWidth, gridHeight);
 const {stats} = useStats();
 const {map, instancedTopMesh} = useMap(rows, cols, hexRadius, gridWidth, gridHeight);
-
+ 
 function init() {
   scene.add(sunMesh);
   scene.add(new THREE.AmbientLight(0x404040));
   scene.add(sunLight);
   scene.add(map);
-  scene.add(new THREE.AxesHelper( 1500 ));
+  // scene.add(new THREE.AxesHelper( 1500 ));
   scene.add(waterSurface);
   scene.add(waterVolume);
   camera.position.set(300, 300, 500);
@@ -56,18 +55,13 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('click', (event) => {
   event.preventDefault();
-
-  // Convertir la position de la souris en coordonnées normalisées (-1 à +1)
   const rect = renderer.domElement.getBoundingClientRect();
   const mouse = new THREE.Vector2();
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-  // Mettre à jour le raycaster
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
-
-  // Vérifier l'intersection avec l'InstancedMesh
   const intersects = raycaster.intersectObject(instancedTopMesh);
 
   if (intersects.length > 0) {
@@ -75,9 +69,7 @@ document.addEventListener('click', (event) => {
     const instanceId = intersection.instanceId;
 
     if (instanceId !== undefined) {
-      // Utiliser instanceId pour identifier l'hexagone cliqué
       console.log(`Instance cliquée: ${instanceId}`);
-      // Par exemple, changer la couleur de l'instance cliquée
       instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xff0000));
       instancedTopMesh.instanceColor.needsUpdate = true;
     }

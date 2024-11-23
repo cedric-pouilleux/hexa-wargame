@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 
-const waterHeight = -9; // Variable unique pour la hauteur de l'eau
+const waterHeight = 26; // Variable unique pour la hauteur de l'eau
 
 export function useWater(gridWidth, gridHeight){
 
