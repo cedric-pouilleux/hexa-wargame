@@ -8,9 +8,6 @@ export function createHexGrid(rows, cols, hexRadius, scale, offsetX, offsetY, ma
   const verticalSpacing = hexRadius * 1.5; // Espacement vertical entre les rangées
   const grid = new THREE.Group();
 
-  let minX = Infinity, maxX = -Infinity;
-  let minZ = Infinity, maxZ = -Infinity;
-
   const sideGeometries = [];
 
   let index = 0;
@@ -20,15 +17,10 @@ export function createHexGrid(rows, cols, hexRadius, scale, offsetX, offsetY, ma
       const x = col * hexWidth + (row % 2 === 1 ? hexWidth / 2 : 0);
       const z = row * verticalSpacing;
 
-      // Mettre à jour les positions minimales et maximales
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minZ = Math.min(minZ, z);
-      maxZ = Math.max(maxZ, z);
-
       // Calculer la hauteur du terrain
-      const noiseX = (x + offsetX) / scale;
+      const noiseX = (x + offsetX) / scale; 
       const noiseZ = (z + offsetY) / scale;
+
       const terrainHeight = THREE.MathUtils.clamp(getHeight(noiseX, noiseZ, maxHeight, simplex), 0, maxHeight);
 
       // Créer la géométrie pour les côtés du cylindre (marron, décoratifs)
@@ -72,13 +64,9 @@ export function createHexGrid(rows, cols, hexRadius, scale, offsetX, offsetY, ma
   // Ajouter les faces supérieures en tant qu'InstancedMesh
   instancedTopMesh.castShadow = true;
   instancedTopMesh.receiveShadow = true;
-  grid.add(instancedTopMesh);
+  grid.add(instancedTopMesh); 
 
-  // Calculer le centre de la grille
-  const gridCenterX = (minX + maxX) / 2;
-  const gridCenterZ = (minZ + maxZ) / 2;
-
-  return { grid, gridCenterX, gridCenterZ, instancedTopMesh };
+  return { grid, instancedTopMesh };
 }
 
 function getHeight(x, z, maxHeight, simplex) {
