@@ -6,24 +6,6 @@ import { getMapUtils } from './utils/map.js';
 
 const scale = 200;
 
-
-function getColorBasedOnHeight(height) {
-  if (height < 0) {
-    // Zones sous l'eau
-    return new THREE.Color(0x0000ff); // Bleu
-  } else if (height < 5) {
-    // Zones basses
-    return new THREE.Color(0x00ff00); // Vert
-  } else if (height < 10) {
-    // Zones moyennes
-    return new THREE.Color(0xffff00); // Jaune
-  } else {
-    // Zones élevées
-    return new THREE.Color(0xffffff); // Blanc (neige)
-  }
-}
- 
-
 export function useMap(rows, cols, hexRadius, gridWidth, gridHeight){
     const hexMeshes = [];
     const map = new THREE.Group();
