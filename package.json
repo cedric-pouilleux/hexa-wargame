@@ -10,8 +10,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "postprocessing": "^6.36.4",
     "simplex-noise": "^4.0.3",
     "three": "^0.170.0",
+    "three-good-godrays": "^0.7.1",
     "vite": "^5.4.11"
   }
 }

@@ -5,7 +5,8 @@ export function useRenderer() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.VSMShadowMap;
-
+    renderer.shadowMap.autoUpdate = true;
+    
     return {
         renderer
     }

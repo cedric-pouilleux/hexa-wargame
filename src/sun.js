@@ -1,6 +1,6 @@
 import { useSunGeometry } from './geometry/sun';
 import { useSunLight } from './lights/sun';
-let sunAngle = 0, sunSpeed = 0.01;
+let sunAngle = 0, sunSpeed = 0.001;
 const sunOrbitRadius = 600; 
 
 export function useSun() {

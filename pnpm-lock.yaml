@@ -8,12 +8,18 @@ importers:
 
   .:
     dependencies:
+      postprocessing:
+        specifier: ^6.36.4
+        version: 6.36.4(three@0.170.0)
       simplex-noise:
         specifier: ^4.0.3
         version: 4.0.3
       three:
         specifier: ^0.170.0
         version: 0.170.0
+      three-good-godrays:
+        specifier: ^0.7.1
+        version: 0.7.1(postprocessing@6.36.4(three@0.170.0))(three@0.170.0)
       vite:
         specifier: ^5.4.11
         version: 5.4.11
@@ -273,6 +279,11 @@ packages:
     resolution: {integrity: sha512-OCVPnIObs4N29kxTjzLfUryOkvZEq+pf8jTF0lg8E7uETuWHA+v7j3c/xJmiqpX450191LlmZfUKkXxkTry7nA==}
     engines: {node: ^10 || ^12 || >=14}
 
+  postprocessing@6.36.4:
+    resolution: {integrity: sha512-3fAyBGuLNR7Rg/q+f2SNlsVCI5mDrymvxhOif3tPKEej8M38z4TvwzNZm+RNpRY2tACE7qQUNE5IHyMcqgvlAg==}
+    peerDependencies:
+      three: '>= 0.157.0 < 0.171.0'
+
   rollup@4.27.3:
     resolution: {integrity: sha512-SLsCOnlmGt9VoZ9Ek8yBK8tAdmPHeppkw+Xa7yDlCEhDTvwYei03JlWo1fdc7YTfLZ4tD8riJCUyAgTbszk1fQ==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
@@ -284,6 +295,13 @@ packages:
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
+
+  three-good-godrays@0.7.1:
+    resolution: {integrity: sha512-VeaJlcWozjKPm2FgiHXPDTVmGxYr89arRYJlyLmJvLr+C+2OVm1RPsHcdXyRU4IPT33EQUfSuFBtL/z2lNqXAw==}
+    engines: {node: '>= 0.13.2'}
+    peerDependencies:
+      postprocessing: ^6.33.4
+      three: '>= 0.125.0 <= 0.167.0'
 
   three@0.170.0:
     resolution: {integrity: sha512-FQK+LEpYc0fBD+J8g6oSEyyNzjp+Q7Ks1C568WWaoMRLW+TkNNWmenWeGgJjV105Gd+p/2ql1ZcjYvNiPZBhuQ==}
@@ -485,6 +503,10 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
+  postprocessing@6.36.4(three@0.170.0):
+    dependencies:
+      three: 0.170.0
+
   rollup@4.27.3:
     dependencies:
       '@types/estree': 1.0.6
@@ -512,6 +534,11 @@ snapshots:
   simplex-noise@4.0.3: {}
 
   source-map-js@1.2.1: {}
+
+  three-good-godrays@0.7.1(postprocessing@6.36.4(three@0.170.0))(three@0.170.0):
+    dependencies:
+      postprocessing: 6.36.4(three@0.170.0)
+      three: 0.170.0
 
   three@0.170.0: {}
 
