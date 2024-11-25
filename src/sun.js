@@ -1,6 +1,6 @@
 import { useSunGeometry } from './geometry/sun';
 import { useSunLight } from './lights/sun';
-let sunAngle = 0, sunSpeed = 0.001;
+let sunAngle = 0;
 const sunOrbitRadius = 600; 
 
 export function useSun() {
@@ -10,8 +10,9 @@ export function useSun() {
   
   sunMesh.position.copy(sunLight.position);
 
-  function updateSun() {
-    sunAngle += sunSpeed;
+  function updateSun(sunRotationSpeed) {
+    
+    sunAngle += sunRotationSpeed;
   
     const sunX = sunOrbitRadius * Math.cos(sunAngle);
     const sunZ = sunOrbitRadius * Math.sin(sunAngle);

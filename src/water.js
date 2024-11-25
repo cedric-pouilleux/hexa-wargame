@@ -1,57 +1,70 @@
 import * as THREE from 'three';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 
-const waterHeight = 26; // Variable unique pour la hauteur de l'eau
+/**
+ * TODO => Rework water update, scale is not a good way
+ */
+export function useWater(opt, gridWidth, gridHeight){
 
-export function useWater(gridWidth, gridHeight){
+    let options = {
+        waterHeight: opt.waterHeight || 26,
+        gridHeight,
+        gridWidth
+    }
 
     const textureLoader = new THREE.TextureLoader();
-    const waterNormals = textureLoader.load('./assets/waternormals.jpg', function (texture) {
-        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    });
+    const texture = textureLoader.loadAsync('./assets/waternormals.jpg');
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
 
-    const globalWwaterWidth = gridWidth + 10;
-    const globalWaterHeight = gridHeight + 10;
+    const globalWaterWidth = options.gridWidth + 10; 
+    const globalWaterHeight = options.gridHeight + 10;
 
-
-    const waterVolumeGeometry = new THREE.BoxGeometry(globalWwaterWidth, 50, globalWaterHeight);
+    const waterVolumeGeometry = new THREE.BoxGeometry(globalWaterWidth, options.waterHeight, globalWaterHeight);
+    const waterSurfaceGeometry = new THREE.PlaneGeometry(globalWaterWidth, globalWaterHeight);
     const waterVolumeMaterial = new THREE.MeshPhongMaterial({
         color: 0x437a93,
         transparent: true, 
     });
 
-    const waterVolume = new THREE.Mesh(waterVolumeGeometry, waterVolumeMaterial);
-
-    // Positionner le volume d'eau
-    waterVolume.position.set(0, waterHeight, 0);
-
-    // Créer la géométrie du plan d'eau
-    const waterSurfaceGeometry = new THREE.PlaneGeometry(globalWwaterWidth, globalWaterHeight);
-
-    // Créer le matériau d'eau avancé
-    const waterSurface = new Water(
-        waterSurfaceGeometry,
-        {
-        textureWidth: 512,
-        textureHeight: 512,
-        waterNormals: waterNormals,
-        // sunDirection: sunLight.position.clone().normalize(),
-        sunColor: 0xffffff,
-        waterColor: 0x437a93,
-        distortionScale: 5,
-        fog: true
+    const waterVolume = new THREE.Mesh(waterVolumeGeometry, waterVolumeMaterial); 
+    const waterSurface  = new Water(
+        waterSurfaceGeometry, {
+            textureWidth: 512,
+            textureHeight: 512,
+            waterNormals: texture,
+            // sunDirection: sunLight.position.clone().normalize(),
+            sunColor: 0xffffff,
+            waterColor: 0x437a93,
+            distortionScale: 5,
+            fog: true
         }
     );
 
-    // Positionner le plan d'eau
-    waterSurface.rotation.x = - Math.PI / 2;
-    waterSurface.position.set(0, waterHeight + 25.1, 0);
+    function createWater(){
+        const scaleX = options.gridWidth / 210.5;
+        const scaleY = options.gridHeight / 181.5;
 
-    // Ajuster l'ordre de rendu
-    waterSurface.renderOrder = 1;
+        waterVolume.scale.set(scaleX, options.waterHeight * 0.2, scaleY);
+        waterSurface.scale.set(scaleX, scaleY, 1);
 
+        waterSurface.rotation.x = - Math.PI / 2;
+        waterSurface.position.set(0, options.waterHeight * 2 + 0.1, 0);
+
+        waterVolume.geometry.width = 20;
+        waterSurface.updateMatrix();
+    }
+
+    function updateWater(pOpt){
+        options = pOpt;
+        console.log(options);
+        createWater();
+    }
+
+    createWater();
+    
     return {
         waterVolume,
-        waterSurface
+        waterSurface,
+        updateWater
     }
 }
