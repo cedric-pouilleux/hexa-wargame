@@ -1,10 +1,8 @@
 import * as THREE from 'three';
 
-export async function useClouds(width, height, weatherMode = 'clear') {
-    const loader = new THREE.TextureLoader();
-    const texture = await loader.loadAsync('./assets/cloud.jpg');
-
+export async function useClouds(width, height, weatherMode) {
     let options = {
+        weatherMode: weatherMode || 'stormy',
         width,
         height
     }
@@ -14,12 +12,12 @@ export async function useClouds(width, height, weatherMode = 'clear') {
 
     // Paramètres de rendu en fonction du mode météo
     let cloudGroupCount, cloudCount, colorRange;
-    setWeatherMode(weatherMode);
-
+    setWeatherMode(options.weatherMode);
+ 
     function setWeatherMode(mode) {
         if (mode === 'clear') {
             cloudGroupCount = 20; // Peu de groupes de nuages
-            cloudCount = 10; // Peu de nuages par groupe
+            cloudCount = 60; // Peu de nuages par groupe
             colorRange = [85, 100]; // Nuages blancs (85% à 100% de luminosité)
         } else if (mode === 'cloudy') {
             cloudGroupCount = 50; // Quantité modérée de groupes de nuages
@@ -39,9 +37,10 @@ export async function useClouds(width, height, weatherMode = 'clear') {
         for (let i = 0; i < cloudGroupCount; i++) {
             const cloudGroup = new THREE.Group();
             const instancedMesh = new THREE.InstancedMesh(cloudGeo, new THREE.MeshLambertMaterial({
-                map: texture,
+                blending: THREE.AdditiveBlending,
+                blending: THREE.AdditiveBlending,
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.9,
                 depthWrite: false
             }), cloudCount);
 
@@ -53,20 +52,18 @@ export async function useClouds(width, height, weatherMode = 'clear') {
                     Math.random() * 20 - 10,
                     Math.random() * 60 - 30
                 );
-
-                const scaleValue = 0.8 + Math.random() * 0.4;  // between 0.8 & 1.2
+                const scaleValue = 0.4 + Math.random() * 0.4;  // between 0.8 & 1.2
                 const scale = new THREE.Vector3(scaleValue, scaleValue, scaleValue);
-
-                const color = new THREE.Color(`hsl(0, 0%, ${colorRange[0] + Math.random() * (colorRange[1] - colorRange[0])}%)`);
-                instancedMesh.setColorAt(j, color);
-
                 tempMatrix.compose(position, new THREE.Quaternion(), scale);
                 instancedMesh.setMatrixAt(j, tempMatrix);
             }
 
             instancedMesh.castShadow = true;
+            instancedMesh.receiveShadow = true;
+            instancedMesh.material.opacity = 0.02 + Math.random() * 0.8; // Ajuster l'opacité en fonction de la densité
             cloudGroup.add(instancedMesh);
 
+            // TODO => Add manual config for cloud y position
             cloudGroup.position.set(
                 (Math.random() * options.width) - options.width / 2,    // Limite X : position entre -gridWidth/2 et gridWidth/2
                 140 + Math.random() * 30,                               // Hauteur au-dessus du terrain
@@ -102,11 +99,7 @@ export async function useClouds(width, height, weatherMode = 'clear') {
         options = {
             ...opt,
         }
-        createClouds();
-    }
-
-    function updateWeatherMode(newWeatherMode) {
-        setWeatherMode(newWeatherMode);
+        setWeatherMode(options.weatherMode);
         createClouds();
     }
 
@@ -114,6 +107,5 @@ export async function useClouds(width, height, weatherMode = 'clear') {
         clouds,
         cloudsAnimate,
         cloudsUpdate,
-        updateWeatherMode
     };
 }
