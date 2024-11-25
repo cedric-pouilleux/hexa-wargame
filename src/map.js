@@ -10,7 +10,6 @@ const simplex = new SimplexNoise();
 export function useMap(opt, gridWidth, gridHeight){
 
   let map = new THREE.Group();
-  let instancedTopMesh;
 
   let options = {
     scale: opt.scale || 200,
@@ -27,11 +26,14 @@ export function useMap(opt, gridWidth, gridHeight){
     gridHeight
   }
 
+  // This value is required for replace cloud y position, need to be reactive
+  let maxHeight = 0;
+
   function generateMap() {
     map.clear();
     const hexMeshes = [];
     const {geometry, material} = useTileGeometry(options.hexRadius);
-    instancedTopMesh = new THREE.InstancedMesh(geometry, material, options.rows * options.cols);
+    const instancedTopMesh = new THREE.InstancedMesh(geometry, material, options.rows * options.cols);
     instancedTopMesh.castShadow = true;
     instancedTopMesh.receiveShadow = true;
 
@@ -47,6 +49,10 @@ export function useMap(opt, gridWidth, gridHeight){
       hexs[row] = [];
       for (let col = 0; col < options.cols; col++) {
         const {terrainHeight, x, z} = getMapUtils(row, col, options.scale, hexWidth, verticalSpacing);
+
+        if (terrainHeight > maxHeight) {
+          maxHeight = terrainHeight;
+        }
 
         // ground tiling
         const {groundGeometry} = useTilesGroundGeometry(options.hexRadius, terrainHeight);
@@ -137,8 +143,8 @@ export function useMap(opt, gridWidth, gridHeight){
 
   return {
     map,
-    instancedTopMesh,
-    updateMap
+    updateMap,
+    maxHeight
   }
 
 }

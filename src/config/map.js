@@ -2,7 +2,7 @@ export const mapConfig = {
     scale: 200,
     rows:100,
     cols:100,
-    waterHeight: 20,
+    waterHeight: 50,
     hexRadius: 3,
     frequency: 0.4,
     amplitude: 0.8,
@@ -13,5 +13,5 @@ export const mapConfig = {
     groupNuageCount: 10,
     NuagePerGroup: 10,
     weatherMode: 'clear',
-    sunRotationSpeed: 0.01
+    sunRotationSpeed: 0
 }

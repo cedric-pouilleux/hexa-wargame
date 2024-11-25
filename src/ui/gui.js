@@ -9,10 +9,11 @@ export function useGUI({
     const gui = new GUI();
 
     gui.add(mapConfig, 'sunRotationSpeed', 0, 0.2, 0.001).name('Sun Rotation Speed');
-    gui.add(mapConfig, 'weatherMode', ['clear', 'cloudy', 'stormy']).name('Weather Mode').onChange(updateCloudCallBack);
+    gui.add(mapConfig, 'weatherMode', ['sunset', 'clear', 'cloudy', 'stormy']).name('Weather Mode').onChange(updateCloudCallBack);
     gui.add(mapConfig, 'hexRadius', 1, 10, 0.1).name('Hex Radius').onChange(_ => {
         updateWaterCallBack();
         updateMapCallBack();
+        updateCloudCallBack();
     });
     gui.add(mapConfig, 'rows', 10, 200, 1).name('Rows').onChange(_ => {
         updateWaterCallBack();

@@ -15,34 +15,44 @@ export async function useClouds(width, height, weatherMode) {
     setWeatherMode(options.weatherMode);
  
     function setWeatherMode(mode) {
-        if (mode === 'clear') {
-            cloudGroupCount = 20; // Peu de groupes de nuages
-            cloudCount = 60; // Peu de nuages par groupe
-            colorRange = [85, 100]; // Nuages blancs (85% à 100% de luminosité)
+        const count = Math.floor(options.width * options.height * (0.002 / 100));
+        if (mode === 'sunset') {
+            cloudGroupCount = count;
+            cloudCount = 20; 
+            colorRange = [0.9, 1];
+        }
+        else if (mode === 'clear') {
+            cloudGroupCount = count * 2; 
+            cloudCount = 40; 
+            colorRange = [0.8, 1.0];
         } else if (mode === 'cloudy') {
-            cloudGroupCount = 50; // Quantité modérée de groupes de nuages
-            cloudCount = 20; // Quantité modérée de nuages par groupe
-            colorRange = [50, 85]; // Nuances de gris clair (50% à 85% de luminosité)
+            cloudGroupCount = count * 3;
+            cloudCount = 60;
+            colorRange = [0.5, 0.85];
         } else if (mode === 'stormy') {
-            cloudGroupCount = 100; // Beaucoup de groupes de nuages
-            cloudCount = 30; // Beaucoup de nuages par groupe
-            colorRange = [20, 50]; // Nuages sombres (20% à 50% de luminosité)
+            cloudGroupCount = count * 5;
+            cloudCount = 60;
+            colorRange = [0.1, 0.3];
         } else {
-            throw new Error('Invalid weather mode. Choose between "clear", "cloudy", or "stormy".');
+            throw new Error('Invalid weather mode. Choose between "clear", "cloudy", "stormy", "foggy", or "sunset".');
         }
     }
 
     function createClouds() {
         clouds.length = 0; 
+            console.log(options.width);
+            console.log(options.height);
+            console.log(options.width * options.height / options.width);
         for (let i = 0; i < cloudGroupCount; i++) {
             const cloudGroup = new THREE.Group();
-            const instancedMesh = new THREE.InstancedMesh(cloudGeo, new THREE.MeshLambertMaterial({
-                blending: THREE.AdditiveBlending,
-                blending: THREE.AdditiveBlending,
+            const materialColor = new THREE.Color().setHSL(0, 0, THREE.MathUtils.lerp(colorRange[0], colorRange[1], Math.random()));
+            const cloudMaterial = new THREE.MeshLambertMaterial({
+                color: materialColor,
                 transparent: true,
-                opacity: 0.9,
+                opacity: 1,
                 depthWrite: false
-            }), cloudCount);
+            });
+            const instancedMesh = new THREE.InstancedMesh(cloudGeo, cloudMaterial, cloudCount);
 
             const tempMatrix = new THREE.Matrix4();
 
@@ -59,11 +69,9 @@ export async function useClouds(width, height, weatherMode) {
             }
 
             instancedMesh.castShadow = true;
-            instancedMesh.receiveShadow = true;
             instancedMesh.material.opacity = 0.02 + Math.random() * 0.8; // Ajuster l'opacité en fonction de la densité
             cloudGroup.add(instancedMesh);
 
-            // TODO => Add manual config for cloud y position
             cloudGroup.position.set(
                 (Math.random() * options.width) - options.width / 2,    // Limite X : position entre -gridWidth/2 et gridWidth/2
                 140 + Math.random() * 30,                               // Hauteur au-dessus du terrain
@@ -97,6 +105,7 @@ export async function useClouds(width, height, weatherMode) {
 
     function cloudsUpdate(opt) { 
         options = {
+            ...options,
             ...opt,
         }
         setWeatherMode(options.weatherMode);

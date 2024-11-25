@@ -9,6 +9,7 @@ import { useRenderer } from './src/renderer.js';
 import { useMap } from './src/map.js';
 import { useClouds } from './src/clouds.js';
 import { mapConfig } from './src/config/map.js';
+import { axialToGrid, getValidNeighbors, gridToAxial } from './src/utils/grid.js';
 
 const hexWidth = () => Math.sqrt(3) * mapConfig.hexRadius;
 const hexHeight = () => 2 * mapConfig.hexRadius;
@@ -17,26 +18,34 @@ const gridWidth = () => (mapConfig.cols - 1) * hexWidth() + hexWidth();
 const gridHeight = () => (mapConfig.rows - 1) * verticalSpacing() + hexHeight();
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000);
-
+const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 1, 10000);
+camera.zoom = 1.2; 
+camera.updateProjectionMatrix();
 const {renderer} = useRenderer();
 const {stats} = useStats();
-const {controls} = useControls(camera, renderer.domElement);
+const {controls} = useControls(camera, renderer.domElement, camera);
 
-const {sunLight, sunMesh, updateSun} = useSun();
+const {updateSun, sunLight} = useSun();
 const {waterSurface, waterVolume, updateWater} = await useWater({waterHeight: mapConfig.waterHeight}, gridWidth(), gridHeight());
-const {map, instancedTopMesh, updateMap} = useMap(mapConfig, gridWidth(), gridHeight());
+const {map, updateMap} = useMap(mapConfig, gridWidth(), gridHeight());
 const {clouds, cloudsAnimate, cloudsUpdate} = await useClouds(gridWidth(), gridHeight(), mapConfig.weatherMode);
 
+const groundGeometry = new THREE.PlaneGeometry(200000, 200000);
+const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x000000});
+const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -10;
+
 function init() {
-  scene.add(new THREE.AxesHelper( 1500 ));
-  scene.add(new THREE.AmbientLight(0x404040));
+  // scene.add(new THREE.AxesHelper( 1500 ));
+  // scene.add( new THREE.DirectionalLightHelper( sunLight, 50 ) );
+  scene.add(new THREE.AmbientLight(0x333333));
   scene.add(map);
   scene.add(waterSurface);
   scene.add(waterVolume);
-  scene.add(sunMesh);
+  scene.add(ground);
   scene.add(sunLight);
-  scene.add(...clouds);
+  clouds.length && scene.add(...clouds);
   camera.position.set(300, 500, 300);
   useGUI({
     updateMapCallBack: () => {
@@ -51,8 +60,8 @@ function init() {
     }),
     updateCloudCallBack: () => {
       scene.remove(...clouds);
-    cloudsUpdate({width: gridWidth(), height: gridHeight(), weatherMode: mapConfig.weatherMode});
-    scene.add(...clouds);
+      cloudsUpdate({width: gridWidth(), height: gridHeight(), weatherMode: mapConfig.weatherMode});
+      clouds.length && scene.add(...clouds);
     }
   });
   animate();
@@ -74,15 +83,36 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }, false);
 
-document.addEventListener('click', (event) => {
+document.addEventListener('click', selectAndHighlightNeighbors, false);
+
+document.body.appendChild(renderer.domElement);
+init();
+
+// Game main
+function getTileCoordinates(instanceId) {
+  const row = Math.floor(instanceId / mapConfig.cols);
+  const col = instanceId % mapConfig.cols;
+  return gridToAxial(col, row);
+}
+
+function getInstanceIdFromCoordinates(q, r) {
+  const { col, row } = axialToGrid(q, r); 
+  const instanceId = row * mapConfig.cols + col;
+  return instanceId;
+}
+
+function selectAndHighlightNeighbors(event){
   event.preventDefault();
   const rect = renderer.domElement.getBoundingClientRect();
+
   const mouse = new THREE.Vector2();
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
+  const instancedTopMesh = map.children[1]; // Care with this hard selection
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
+
   const intersects = raycaster.intersectObject(instancedTopMesh);
 
   if (intersects.length > 0) {
@@ -90,12 +120,20 @@ document.addEventListener('click', (event) => {
     const instanceId = intersection.instanceId;
 
     if (instanceId !== undefined) {
-      instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xff0000));
+      instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xffffff));
+      instancedTopMesh.instanceColor.needsUpdate = true;
+
+      const { q, r } = getTileCoordinates(instanceId); 
+      const neighbors = getValidNeighbors(q, r, mapConfig.cols, mapConfig.rows);
+
+      neighbors.forEach(([nq, nr]) => {
+        const neighborInstanceId = getInstanceIdFromCoordinates(nq, nr); 
+        if (neighborInstanceId !== undefined) {
+          instancedTopMesh.setColorAt(neighborInstanceId, new THREE.Color(0xffffff));
+        }
+      });
+
       instancedTopMesh.instanceColor.needsUpdate = true;
     }
   }
-}, false);
-
-document.body.appendChild(renderer.domElement);
-init();
-
+}
