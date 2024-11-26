@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      alea:
+        specifier: ^1.0.1
+        version: 1.0.1
       lil-gui:
         specifier: ^0.20.0
         version: 0.20.0
@@ -272,6 +275,9 @@ packages:
   '@webgpu/types@0.1.51':
     resolution: {integrity: sha512-ktR3u64NPjwIViNCck+z9QeyN0iPkQCUOQ07ZCV1RzlkfP+olLTeEZ95O1QHS+v4w9vJeY9xj/uJuSphsHy5rQ==}
 
+  alea@1.0.1:
+    resolution: {integrity: sha512-QU+wv+ziDXaMxRdsQg/aH7sVfWdhKps5YP97IIwFkHCsbDZA3k87JXoZ5/iuemf4ntytzIWeScrRpae8+lDrXA==}
+
   esbuild@0.21.5:
     resolution: {integrity: sha512-mg3OPMV4hXywwpoDxu3Qda5xCKQi+vCTZq8S9J/EpkhB2HzKXq4SNFZE3+NK93JYxc8VMSep+lOUSC/RVKaBqw==}
     engines: {node: '>=12'}
@@ -498,6 +504,8 @@ snapshots:
   '@types/webxr@0.5.20': {}
 
   '@webgpu/types@0.1.51': {}
+
+  alea@1.0.1: {}
 
   esbuild@0.21.5:
     optionalDependencies:

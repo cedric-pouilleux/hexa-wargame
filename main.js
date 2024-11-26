@@ -90,6 +90,7 @@ init();
 
 // Game main
 function getTileCoordinates(instanceId) {
+  console.log(instanceId);
   const row = Math.floor(instanceId / mapConfig.cols);
   const col = instanceId % mapConfig.cols;
   return gridToAxial(col, row);
@@ -122,7 +123,7 @@ function selectAndHighlightNeighbors(event){
 
     if (instanceId !== undefined) {
       // Highlight the selected tile
-      instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xffffff));
+      instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xcccccc));
       instancedTopMesh.instanceColor.needsUpdate = true;
 
       // Get and highlight neighbors
