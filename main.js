@@ -109,20 +109,23 @@ function selectAndHighlightNeighbors(event){
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-  const instancedTopMesh = map.children[1]; // Care with this hard selection
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
 
-  const intersects = raycaster.intersectObject(instancedTopMesh);
+  const instancedTopMesh = map.children[0];
+
+  const intersects = raycaster.intersectObject(instancedTopMesh); // Revert to selecting only the hex map layer
 
   if (intersects.length > 0) {
     const intersection = intersects[0];
     const instanceId = intersection.instanceId;
 
     if (instanceId !== undefined) {
+      // Highlight the selected tile
       instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xffffff));
       instancedTopMesh.instanceColor.needsUpdate = true;
 
+      // Get and highlight neighbors
       const { q, r } = getTileCoordinates(instanceId); 
       const neighbors = getValidNeighbors(q, r, mapConfig.cols, mapConfig.rows);
 
@@ -132,7 +135,6 @@ function selectAndHighlightNeighbors(event){
           instancedTopMesh.setColorAt(neighborInstanceId, new THREE.Color(0xffffff));
         }
       });
-
       instancedTopMesh.instanceColor.needsUpdate = true;
     }
   }

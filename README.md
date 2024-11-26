@@ -19,8 +19,8 @@ npx vite
 - [x] Immersive lighting: Dynamic rotating sun, soft shadows, and day/night effect.
 - [x] Interactivity: Real-time hexagon selection using raycasting.
 - [x] Optimization: Simplified geometry to maintain 75 FPS performance.
-- [ ] WIP Weather gesture: Cloud, rains, specular, lighting
-- [ ] WIP Map editor
+- [x] Weather gesture
+- [x] Map editor
 
 
 ### GUI Configurable testing
@@ -47,5 +47,3 @@ npx vite
 
 #### Clouds
 - [x] Weather change
-- [ ] Clouds groups count
-- [ ] Clouds on group cout

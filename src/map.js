@@ -1,7 +1,4 @@
 import * as THREE from 'three';
-import { useTileGeometry } from './geometry/tile';
-import { useTilesGroundGeometry } from './geometry/tilesGround.js';
-import { useGround } from './geometry/ground.js';
 
 const offsetX = Math.random() * 1000;
 const offsetY = Math.random() * 1000;
@@ -26,18 +23,31 @@ export function useMap(opt, gridWidth, gridHeight){
     gridHeight
   }
 
-  // This value is required for replace cloud y position, need to be reactive
+  // This value is required for replace cloud y position,
   let maxHeight = 0;
 
   function generateMap() {
     map.clear();
     const hexMeshes = [];
-    const {geometry, material} = useTileGeometry(options.hexRadius);
-    const instancedTopMesh = new THREE.InstancedMesh(geometry, material, options.rows * options.cols);
+    
+    const material = new THREE.MeshStandardMaterial({
+        color: 0x228B22,
+        flatShading: true,
+        metalness: 0,
+        roughness: 1,
+    });
+
+    const instancedTopMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(
+          options.hexRadius,      // Rayon supérieur
+          options.hexRadius,      // Rayon inférieur
+          1,                      // Hauteur initiale de l'hexagone (sera modifiée dynamiquement)
+          6,                      // Nombre de segments radiaux pour un hexagone
+          1,                      // Hauteur segmentée en 1 seul segment
+          false                   // Ouvrir le haut et le bas pour pouvoir manipuler les sommets
+    ), material, options.rows * options.cols);
     instancedTopMesh.castShadow = true;
     instancedTopMesh.receiveShadow = true;
 
-    const sideGeometries = []; 
     let index = 0;
 
     const hexWidth = Math.sqrt(3) * options.hexRadius;
@@ -54,17 +64,13 @@ export function useMap(opt, gridWidth, gridHeight){
           maxHeight = terrainHeight;
         }
 
-        // ground tiling
-        const {groundGeometry} = useTilesGroundGeometry(options.hexRadius, terrainHeight);
-        groundGeometry.translate(x, terrainHeight / 2, z);
-        sideGeometries.push(groundGeometry);
-
-        // clickable tile
+        // Modifier la géométrie pour étendre les hexagones jusqu'en bas
         const matrix = new THREE.Matrix4();
-        matrix.makeRotationY(Math.PI / 6);
-        matrix.setPosition(x, terrainHeight, z);
+        matrix.setPosition(x, terrainHeight / 2, z);
+        matrix.scale(new THREE.Vector3(1, terrainHeight, 1)); // Étendre la hauteur de la géométrie
         instancedTopMesh.setMatrixAt(index, matrix);
-        instancedTopMesh.setColorAt(index, new THREE.Color(`rgb(0, ${Math.round(terrainHeight) * 2}, 0)`)); // care with that
+
+        instancedTopMesh.setColorAt(index, new THREE.Color(`rgb(0, ${Math.round(terrainHeight) * 2}, 0)`));
         hexs[row][col] = { id: index, properties: {} };
 
         index++;
@@ -73,9 +79,7 @@ export function useMap(opt, gridWidth, gridHeight){
 
     instancedTopMesh.instanceColor.needsUpdate = true;
 
-    const {ground} = useGround(sideGeometries);
-
-    map.add(ground);
+    map.add(instancedTopMesh);
 
     map.traverse(function(child) {
       if (child.isMesh) {
@@ -85,8 +89,6 @@ export function useMap(opt, gridWidth, gridHeight){
     });
 
     map.position.set(-options.gridWidth/2 + 2, 0 , -options.gridHeight / 2 + 5 );
-
-    map.add(instancedTopMesh);
   }
 
   function updateMap(updateOptions, pGridWidth, pGridHeight){
