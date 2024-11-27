@@ -22,12 +22,13 @@ const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerH
 camera.zoom = 1.2; 
 camera.updateProjectionMatrix();
 const {renderer} = useRenderer();
+
 const {stats} = useStats();
 const {controls} = useControls(camera, renderer.domElement, camera);
 
 const {updateSun, sunLight} = useSun();
 const {waterSurface, waterVolume, updateWater} = await useWater({waterHeight: mapConfig.waterHeight}, gridWidth(), gridHeight());
-const {map, updateMap} = useMap(mapConfig, gridWidth(), gridHeight());
+const {map, updateMap, hexs} = useMap(mapConfig, gridWidth(), gridHeight());
 const {clouds, cloudsAnimate, cloudsUpdate} = await useClouds(gridWidth(), gridHeight(), mapConfig.weatherMode);
 
 const groundGeometry = new THREE.PlaneGeometry(200000, 200000);
@@ -62,6 +63,13 @@ function init() {
       scene.remove(...clouds);
       cloudsUpdate({width: gridWidth(), height: gridHeight(), weatherMode: mapConfig.weatherMode});
       clouds.length && scene.add(...clouds);
+    },
+    saveMapCallback: () => {
+      const blob = new Blob([JSON.stringify(hexs)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `iron-grid-${Date()}.json`;
+      link.click();
     }
   });
   animate();

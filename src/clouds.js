@@ -40,9 +40,6 @@ export async function useClouds(width, height, weatherMode) {
 
     function createClouds() {
         clouds.length = 0; 
-            console.log(options.width);
-            console.log(options.height);
-            console.log(options.width * options.height / options.width);
         for (let i = 0; i < cloudGroupCount; i++) {
             const cloudGroup = new THREE.Group();
             const materialColor = new THREE.Color().setHSL(0, 0, THREE.MathUtils.lerp(colorRange[0], colorRange[1], Math.random()));

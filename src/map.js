@@ -1,16 +1,14 @@
 import * as THREE from 'three';
 import { gridToAxial } from './utils/grid';
-// import alea from 'alea';
-
-const offsetX = Math.random() * 1000;
-const offsetY = Math.random() * 1000;
-const simplex = new SimplexNoise();
+import alea from 'alea';
+import { createNoise2D } from 'simplex-noise';
 
 export function useMap(opt, gridWidth, gridHeight){
 
   let map = new THREE.Group();
 
   let options = {
+    seed: opt.seed,
     scale: opt.scale || 200,
     rows: opt.rows || 10,
     cols: opt.cols || 10,
@@ -27,6 +25,7 @@ export function useMap(opt, gridWidth, gridHeight){
 
   // This value is required for replace cloud y position,
   let maxHeight = 0;
+  let hexs = [];
 
   function getTileCoordinates(instanceId) {
     const row = Math.floor(instanceId / options.cols);
@@ -35,7 +34,6 @@ export function useMap(opt, gridWidth, gridHeight){
   }
 
   function generateExistingMap(){
-
     const hexsT = [
       {index: 0, height: 100, ...getTileCoordinates(0)},
       {index: 1, height: 100, ...getTileCoordinates(1)},
@@ -49,22 +47,25 @@ export function useMap(opt, gridWidth, gridHeight){
       {index: 9, height: 100, ...getTileCoordinates(9)},
     ]
 
+    const hexWidth = Math.sqrt(3) * options.hexRadius;
+    const verticalSpacing = options.hexRadius * 1.5;
 
     hexsT.forEach((hex) => {
       const x = hex.col * hexWidth + (hex.row % 2 === 1 ? hexWidth / 2 : 0);
       const z = hex.row * verticalSpacing;
       const matrix = new THREE.Matrix4();
       matrix.setPosition(x, hex.height / 2, z);
-      matrix.scale(new THREE.Vector3(1, hex.height, 1)); // Étendre la hauteur de la géométrie
+      matrix.scale(new THREE.Vector3(1, hex.height, 1));
       instancedTopMesh.setMatrixAt(hex.index, matrix);
       instancedTopMesh.setColorAt(hex.index, new THREE.Color(`rgb(0, ${Math.round(hex.height) * 2}, 0)`));
-      // index++;
     })
   }
 
   function generateMap() {
     map.clear();
-    const hexMeshes = [];
+    hexs = [];
+    const prng = alea(options.seed);
+    const mapNoise = createNoise2D(prng);
     
     const material = new THREE.MeshStandardMaterial({
         color: 0x228B22,
@@ -85,37 +86,53 @@ export function useMap(opt, gridWidth, gridHeight){
     instancedTopMesh.receiveShadow = true;
 
     let index = 0;
-    const hexs = [];
 
     const hexWidth = Math.sqrt(3) * options.hexRadius;
     const verticalSpacing = options.hexRadius * 1.5;
-
+    
     for (let row = 0; row < options.rows; row++) {
       for (let col = 0; col < options.cols; col++) {
-        const {terrainHeight, x, z} = getMapUtils(row, col, options.scale, hexWidth, verticalSpacing);
+        const x = col * hexWidth + (row % 2 === 1 ? hexWidth / 2 : 0);
+        const z = row * verticalSpacing;
+        const noiseX = x / options.scale;
+        const noiseZ = z / options.scale;
 
-        if (terrainHeight > maxHeight) {
-          maxHeight = terrainHeight;
+        let minHeight = 0;
+        let frequency = options.frequency;
+        let amplitude = options.amplitude;
+        let maxAmplitude = options.maxAmplitude;
+        const persistence = options.persistence;
+        const lacunarity = options.lacunarity;
+        const octaves = options.octaves;
+
+        for (let i = 0; i < octaves; i++) {
+          const noiseValue = mapNoise(noiseX * frequency, noiseZ * frequency);
+          minHeight += noiseValue * amplitude;
+          maxAmplitude -= amplitude;
+          amplitude *= persistence;
+          frequency *= lacunarity;
+        }
+
+        // Normaliser la hauteur entre 0 et 1
+        minHeight = (minHeight / maxAmplitude + 1) / 2;
+
+        const height = THREE.MathUtils.clamp(Math.pow(minHeight, 1.5) * options.scale, 0, options.scale);
+
+        if (height > maxHeight) {
+          maxHeight = height;
         }
 
         // Modifier la géométrie pour étendre les hexagones jusqu'en bas
         const matrix = new THREE.Matrix4();
-        matrix.setPosition(x, terrainHeight / 2, z);
-        matrix.scale(new THREE.Vector3(1, terrainHeight, 1)); // Étendre la hauteur de la géométrie
+        matrix.setPosition(x, height / 2, z);
+        matrix.scale(new THREE.Vector3(1, height, 1)); // Étendre la hauteur de la géométrie
         instancedTopMesh.setMatrixAt(index, matrix);
-        instancedTopMesh.setColorAt(index, new THREE.Color(`rgb(0, ${Math.round(terrainHeight) * 2}, 0)`));
+        instancedTopMesh.setColorAt(index, new THREE.Color(`rgb(0, ${Math.round(height) * 2}, 0)`));
 
         hexs.push({ 
           index,
-          properties: {
-            type: 'ground'
-          },
-          onMap: {
-            row,
-            col,
-           ...gridToAxial(row, col),
-           height: terrainHeight
-          },
+          properties: { type: 'ground'},
+          onMap: { row, col, ...gridToAxial(row, col), height },
         });
         index++;
       }
@@ -127,16 +144,16 @@ export function useMap(opt, gridWidth, gridHeight){
 
     map.traverse(function(child) {
       if (child.isMesh) {
-        hexMeshes.push(child);
         child.userData.originalColor = child.material.color.clone();
       }
     });
 
-    map.position.set(-options.gridWidth/2 + 2, 0 , -options.gridHeight / 2 + 5 );
+    map.position.set(-options.gridWidth / 2 + 2, 0, -options.gridHeight / 2 + 5);
   }
 
   function updateMap(updateOptions, pGridWidth, pGridHeight){
     options = {
+      ...options,
       ...updateOptions
     }
     options.gridWidth = pGridWidth;
@@ -144,54 +161,12 @@ export function useMap(opt, gridWidth, gridHeight){
     generateMap();
   }
 
-  function getMapUtils(row, col, scale, hexWidth, verticalSpacing){
-      const x = col * hexWidth + (row % 2 === 1 ? hexWidth / 2 : 0);
-      const z = row * verticalSpacing;
-      
-      const noiseX = (x + offsetX) / scale;
-      const noiseZ = (z + offsetY) / scale;
-      
-      const terrainHeight = THREE.MathUtils.clamp(getHeight(noiseX, noiseZ, scale, simplex), 0, scale);
-
-      return {
-          terrainHeight,
-          x,
-          z
-      }
-  }
-
-  function getHeight(x, z, maxHeight, simplex) {
-    let height = 0;
-    let frequency = options.frequency;
-    let amplitude = options.amplitude;
-    let maxAmplitude = options.maxAmplitude;
-
-    const persistence = options.persistence;
-    const lacunarity = options.lacunarity;
-    const octaves = options.octaves;
-
-    for (let i = 0; i < octaves; i++) {
-      const noiseValue = simplex.noise2D(x * frequency, z * frequency);
-      console.log(noiseValue);
-      height += noiseValue * amplitude;
-      maxAmplitude -= amplitude;
-      amplitude *= persistence;
-      frequency *= lacunarity;
-    }
-
-    // Normaliser la hauteur entre 0 et 1
-    height = (height / maxAmplitude + 1) / 2; // Valeur entre 0 et 1
-
-    // Appliquer une fonction exponentielle pour accentuer les reliefs (facultatif)
-    return Math.pow(height, 1.5) * maxHeight; // Hauteur finale entre 0 et maxHeight
-  }
-
   generateMap()
 
   return {
     map,
     updateMap,
-    maxHeight
+    maxHeight,
+    hexs,
   }
-
 }

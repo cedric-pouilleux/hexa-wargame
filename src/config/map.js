@@ -1,4 +1,5 @@
 export const mapConfig = {
+    seed: 'seed',
     scale: 200,
     rows:100,
     cols:100,

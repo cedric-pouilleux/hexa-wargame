@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {ref} from 'vue';
 
 export function useRenderer() {
     const renderer = new THREE.WebGLRenderer();
