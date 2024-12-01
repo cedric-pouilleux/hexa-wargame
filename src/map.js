@@ -3,11 +3,10 @@ import { gridToAxial } from './utils/grid';
 import alea from 'alea';
 import { createNoise2D } from 'simplex-noise';
 
-export function useMap(opt, gridWidth, gridHeight){
+export function useMap(opt, gridWidth, gridHeight) {
+  const map = new THREE.Group();
 
-  let map = new THREE.Group();
-
-  let options = {
+  const options = {
     seed: opt.seed,
     scale: opt.scale || 200,
     rows: opt.rows || 10,
@@ -15,158 +14,188 @@ export function useMap(opt, gridWidth, gridHeight){
     hexRadius: opt.hexRadius || 5,
     frequency: opt.frequency || 0.4,
     amplitude: opt.amplitude || 0.8,
-    maxAmplitude: opt.maxAmplitude || 0,
     persistence: opt.persistence || 0.5,
     lacunarity: opt.lacunarity || 2,
     octaves: opt.octaves || 3,
     gridWidth,
-    gridHeight
-  }
+    gridHeight,
+  };
 
-  // This value is required for replace cloud y position,
   let maxHeight = 0;
-  let hexs = [];
-
-  function getTileCoordinates(instanceId) {
-    const row = Math.floor(instanceId / options.cols);
-    const col = instanceId % options.cols;
-    return gridToAxial(col, row);
-  }
-
-  function generateExistingMap(){
-    const hexsT = [
-      {index: 0, height: 100, ...getTileCoordinates(0)},
-      {index: 1, height: 100, ...getTileCoordinates(1)},
-      {index: 2, height: 100, ...getTileCoordinates(2)},
-      {index: 3, height: 100, ...getTileCoordinates(3)},
-      {index: 4, height: 100, ...getTileCoordinates(4)},
-      {index: 5, height: 100, ...getTileCoordinates(5)},
-      {index: 6, height: 100, ...getTileCoordinates(6)},
-      {index: 7, height: 100, ...getTileCoordinates(7)},
-      {index: 8, height: 100, ...getTileCoordinates(8)},
-      {index: 9, height: 100, ...getTileCoordinates(9)},
-    ]
-
-    const hexWidth = Math.sqrt(3) * options.hexRadius;
-    const verticalSpacing = options.hexRadius * 1.5;
-
-    hexsT.forEach((hex) => {
-      const x = hex.col * hexWidth + (hex.row % 2 === 1 ? hexWidth / 2 : 0);
-      const z = hex.row * verticalSpacing;
-      const matrix = new THREE.Matrix4();
-      matrix.setPosition(x, hex.height / 2, z);
-      matrix.scale(new THREE.Vector3(1, hex.height, 1));
-      instancedTopMesh.setMatrixAt(hex.index, matrix);
-      instancedTopMesh.setColorAt(hex.index, new THREE.Color(`rgb(0, ${Math.round(hex.height) * 2}, 0)`));
-    })
-  }
+  const hexs = [];
 
   function generateMap() {
     map.clear();
-    hexs = [];
+
     const prng = alea(options.seed);
     const mapNoise = createNoise2D(prng);
-    
+
+    const instanceCount = options.rows * options.cols;
+
+    // Géométrie de base pour les hexagones
+    const baseGeometry = new THREE.CylinderGeometry(
+      options.hexRadius,
+      options.hexRadius,
+      1,
+      6,
+      1,
+      false
+    );
+
+    // Matériau avec shaders personnalisés
     const material = new THREE.MeshStandardMaterial({
-        color: 0x228B22,
-        flatShading: true,
-        metalness: 0,
-        roughness: 1,
+      flatShading: true,
+      metalness: 0,
+      roughness: 1,
     });
 
-    const instancedTopMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(
-          options.hexRadius,      // Rayon supérieur
-          options.hexRadius,      // Rayon inférieur
-          1,                      // Hauteur initiale de l'hexagone (sera modifiée dynamiquement)
-          6,                      // Nombre de segments radiaux pour un hexagone
-          1,                      // Hauteur segmentée en 1 seul segment
-          false                   // Ouvrir le haut et le bas pour pouvoir manipuler les sommets
-    ), material, options.rows * options.cols);
-    instancedTopMesh.castShadow = true;
-    instancedTopMesh.receiveShadow = true;
+    // Création de l'InstancedMesh
+    const instancedMesh = new THREE.InstancedMesh(baseGeometry, material, instanceCount);
+    instancedMesh.castShadow = true;
+    instancedMesh.receiveShadow = true;
 
-    let index = 0;
+    // Tableaux pour les attributs d'instance
+    const instanceHeights = new Float32Array(instanceCount);
+    const instanceColors = new Float32Array(instanceCount * 3);
+    const instanceIds = new Float32Array(instanceCount);
 
     const hexWidth = Math.sqrt(3) * options.hexRadius;
     const verticalSpacing = options.hexRadius * 1.5;
-    
+
+    let index = 0;
+
+    const dummy = new THREE.Object3D();
+
+    // Calcul des décalages pour centrer la carte
+    const offsetX = -options.gridWidth / 2 + options.hexRadius;
+    const offsetZ = -options.gridHeight / 2 + options.hexRadius;
+
     for (let row = 0; row < options.rows; row++) {
       for (let col = 0; col < options.cols; col++) {
-        const x = col * hexWidth + (row % 2 === 1 ? hexWidth / 2 : 0);
-        const z = row * verticalSpacing;
-        const noiseX = x / options.scale;
-        const noiseZ = z / options.scale;
+        // Positions ajustées pour centrer la carte
+        const x = col * hexWidth + ((row % 2) * hexWidth) / 2 + offsetX;
+        const z = row * verticalSpacing + offsetZ;
 
-        let minHeight = 0;
-        let frequency = options.frequency;
-        let amplitude = options.amplitude;
-        let maxAmplitude = options.maxAmplitude;
-        const persistence = options.persistence;
-        const lacunarity = options.lacunarity;
-        const octaves = options.octaves;
+        const height = computeHeight(x, z, mapNoise);
+        maxHeight = Math.max(maxHeight, height);
 
-        for (let i = 0; i < octaves; i++) {
-          const noiseValue = mapNoise(noiseX * frequency, noiseZ * frequency);
-          minHeight += noiseValue * amplitude;
-          maxAmplitude -= amplitude;
-          amplitude *= persistence;
-          frequency *= lacunarity;
-        }
+        // Hauteur et couleur de l'instance
+        instanceHeights[index] = height;
 
-        // Normaliser la hauteur entre 0 et 1
-        minHeight = (minHeight / maxAmplitude + 1) / 2;
+        const color = new THREE.Color(`rgb(0, ${Math.round(height) * 2}, 0)`);
+        instanceColors.set([color.r, color.g, color.b], index * 3);
 
-        const height = THREE.MathUtils.clamp(Math.pow(minHeight, 1.5) * options.scale, 0, options.scale);
+        // Identifiant de l'instance pour le picking
+        instanceIds[index] = index;
 
-        if (height > maxHeight) {
-          maxHeight = height;
-        }
+        // Position de l'instance via la matrice
+        dummy.position.set(x, 0, z);
+        dummy.updateMatrix();
+        instancedMesh.setMatrixAt(index, dummy.matrix);
 
-        // Modifier la géométrie pour étendre les hexagones jusqu'en bas
-        const matrix = new THREE.Matrix4();
-        matrix.setPosition(x, height / 2, z);
-        matrix.scale(new THREE.Vector3(1, height, 1)); // Étendre la hauteur de la géométrie
-        instancedTopMesh.setMatrixAt(index, matrix);
-        instancedTopMesh.setColorAt(index, new THREE.Color(`rgb(0, ${Math.round(height) * 2}, 0)`));
-
-        hexs.push({ 
+        hexs.push({
           index,
-          properties: { type: 'ground'},
+          properties: { type: 'ground' },
           onMap: { row, col, ...gridToAxial(row, col), height },
         });
+
         index++;
       }
     }
 
-    instancedTopMesh.instanceColor.needsUpdate = true;
+    // Ajout des attributs d'instance à la géométrie de l'InstancedMesh
+    instancedMesh.geometry.setAttribute(
+      'instanceHeight',
+      new THREE.InstancedBufferAttribute(instanceHeights, 1).setUsage(THREE.DynamicDrawUsage)
+    );
+    instancedMesh.geometry.setAttribute(
+      'instanceColor',
+      new THREE.InstancedBufferAttribute(instanceColors, 3)
+    );
+    instancedMesh.geometry.setAttribute(
+      'instanceId',
+      new THREE.InstancedBufferAttribute(instanceIds, 1)
+    );
 
-    map.add(instancedTopMesh);
+    // Modification du shader pour ajuster la hauteur et la couleur
+    material.onBeforeCompile = (shader) => {
+      shader.vertexShader = `
+        attribute float instanceHeight;
+        attribute vec3 instanceColor;
+        varying vec3 vInstanceColor;
+        ${shader.vertexShader}
+      `;
 
-    map.traverse(function(child) {
-      if (child.isMesh) {
-        child.userData.originalColor = child.material.color.clone();
-      }
-    });
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `
+          vec3 transformed = position;
+          transformed.y *= instanceHeight;
+          transformed.y += (instanceHeight - 1.0) * 0.5;
+        `
+      );
 
-    map.position.set(-options.gridWidth / 2 + 2, 0, -options.gridHeight / 2 + 5);
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <color_vertex>',
+        'vInstanceColor = instanceColor;'
+      );
+
+      shader.fragmentShader = `
+        varying vec3 vInstanceColor;
+        ${shader.fragmentShader}
+      `;
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'vec4 diffuseColor = vec4( diffuse, opacity );',
+        'vec4 diffuseColor = vec4( vInstanceColor, opacity );'
+      );
+    };
+
+    map.add(instancedMesh);
   }
 
-  function updateMap(updateOptions, pGridWidth, pGridHeight){
-    options = {
-      ...options,
-      ...updateOptions
+  function computeHeight(x, z, noiseFunction) {
+    let totalHeight = 0;
+    let amplitude = options.amplitude;
+    let frequency = options.frequency;
+    let maxPossibleHeight = 0;
+
+    for (let i = 0; i < options.octaves; i++) {
+      const noiseValue = noiseFunction(
+        (x / options.scale) * frequency,
+        (z / options.scale) * frequency
+      );
+      totalHeight += noiseValue * amplitude;
+      maxPossibleHeight += amplitude;
+      amplitude *= options.persistence;
+      frequency *= options.lacunarity;
     }
-    options.gridWidth = pGridWidth;
-    options.gridHeight = pGridHeight;
+
+    // Normalisation de la hauteur
+    totalHeight = totalHeight / maxPossibleHeight;
+    totalHeight = (totalHeight + 1) / 2; // Mappe la valeur entre 0 et 1
+    const height = THREE.MathUtils.clamp(
+      Math.pow(totalHeight, 1.5) * options.scale,
+      0,
+      options.scale
+    );
+    return height;
+  }
+
+  function updateMap(updateOptions, pGridWidth, pGridHeight) {
+    Object.assign(options, updateOptions, {
+      gridWidth: pGridWidth,
+      gridHeight: pGridHeight,
+    });
     generateMap();
   }
 
-  generateMap()
+  generateMap();
 
   return {
     map,
     updateMap,
     maxHeight,
     hexs,
-  }
+  };
 }
