@@ -93,6 +93,126 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('click', selectAndHighlightNeighbors, false);
 
+let isRightMouseDown = false;
+let lastLevelingTime = 0;
+const levelingInterval = 1; // en millisecondes
+
+document.addEventListener('mousedown', onDocumentMouseDown, false);
+document.addEventListener('mouseup', onDocumentMouseUp, false);
+document.addEventListener('mousemove', onDocumentMouseMove, false);
+
+// Modifiez l'écouteur de clic existant pour le bouton gauche
+document.addEventListener('click', (event) => {
+  if (event.button === 0) { // 0 est le bouton gauche
+    selectAndHighlightNeighbors(event);
+  }
+}, false);
+
+function onDocumentMouseDown(event) {
+  if (event.button === 2) { // 2 est le bouton droit
+    isRightMouseDown = true;
+  }
+}
+
+function onDocumentMouseUp(event) {
+  if (event.button === 2) {
+    isRightMouseDown = false;
+  }
+}
+
+function onDocumentMouseMove(event) {
+  if (isRightMouseDown) {
+    const currentTime = Date.now();
+    if (currentTime - lastLevelingTime > levelingInterval) {
+      levelTiles(event);
+      lastLevelingTime = currentTime;
+    }
+  }
+}
+
+function levelTiles(event) {
+  event.preventDefault();
+  const rect = renderer.domElement.getBoundingClientRect();
+
+  const mouse = new THREE.Vector2();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, camera);
+
+  const instancedTopMesh = map.children[0];
+
+  const intersects = raycaster.intersectObject(instancedTopMesh);
+
+  if (intersects.length > 0) {
+    const intersection = intersects[0];
+    const instanceId = intersection.instanceId;
+
+    if (instanceId !== undefined) {
+      const { q, r } = getTileCoordinates(instanceId);
+      const tilesToLevel = getTilesWithinDistance(q, r, 3);
+
+      tilesToLevel.forEach(({ q: nq, r: nr, distance }) => {
+        const neighborInstanceId = getInstanceIdFromCoordinates(nq, nr);
+        if (neighborInstanceId !== undefined) {
+          lowerTile(neighborInstanceId, distance);
+        }
+      });
+
+      instancedTopMesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+}
+
+function getTilesWithinDistance(q, r, maxDistance) {
+  const tiles = [];
+  for (let dx = -maxDistance; dx <= maxDistance; dx++) {
+    for (let dy = Math.max(-maxDistance, -dx - maxDistance); dy <= Math.min(maxDistance, -dx + maxDistance); dy++) {
+      const dz = -dx - dy;
+      const distance = (Math.abs(dx) + Math.abs(dy) + Math.abs(dz)) / 2;
+      if (distance <= maxDistance) {
+        const nq = q + dx;
+        const nr = r + dy;
+        // Convertir les coordonnées axiales en coordonnées de grille
+        const { col, row } = axialToGrid(nq, nr);
+        if (col >= 0 && row >= 0 && col < mapConfig.cols && row < mapConfig.rows) {
+          tiles.push({ q: nq, r: nr, distance });
+        }
+      }
+    }
+  }
+  return tiles;
+}
+
+function lowerTile(instanceId, distance) {
+  const instancedTopMesh = map.children[0];
+
+  const matrix = new THREE.Matrix4();
+  instancedTopMesh.getMatrixAt(instanceId, matrix);
+
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  matrix.decompose(position, quaternion, scale);
+
+  // Calculer la quantité de réduction basée sur la distance (linéaire)
+  const maxReduction = 1; // La hauteur maximale à réduire pour la tuile centrale
+  const reduction = maxReduction * (1 - distance / 3);
+
+  // Réduire la hauteur et ajuster la position en conséquence
+  scale.y = Math.max(0.1, scale.y - reduction);
+  position.y = scale.y / 2;
+
+  // Recomposer la matrice
+  matrix.compose(position, quaternion, scale);
+  instancedTopMesh.setMatrixAt(instanceId, matrix);
+
+  // Optionnel : mettre à jour la couleur pour indiquer le changement
+  // instancedTopMesh.setColorAt(instanceId, new THREE.Color(0x8B4513)); // Marron pour la terre abaissée
+  // instancedTopMesh.instanceColor.needsUpdate = true;
+}
+
 document.body.appendChild(renderer.domElement);
 init();
 
