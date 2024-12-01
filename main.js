@@ -9,7 +9,7 @@ import { useRenderer } from './src/renderer.js';
 import { useMap } from './src/map.js';
 import { useClouds } from './src/clouds.js';
 import { mapConfig } from './src/config/map.js';
-import { axialToGrid, getValidNeighbors, gridToAxial } from './src/utils/grid.js';
+import { axialToGrid, gridToAxial } from './src/utils/grid.js';
 
 const hexWidth = () => Math.sqrt(3) * mapConfig.hexRadius;
 const hexHeight = () => 2 * mapConfig.hexRadius;
@@ -37,9 +37,70 @@ const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = -10;
 
+// Définition du curseur
+const cursorHeight = 5; // Hauteur du cône
+const cursorRadius = 1;  // Rayon de la base du cône
+
+// Définition du curseur
+const cursorGeometry = new THREE.ConeGeometry(cursorRadius, cursorHeight, 16); // radius, height, radialSegments
+const cursorMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+});
+cursorMaterial.depthTest = false; // Facultatif : rend le curseur toujours visible
+const cursor = new THREE.Mesh(cursorGeometry, cursorMaterial);
+cursor.rotation.x = Math.PI; // Faire pointer le cône vers le bas
+cursor.renderOrder = 999; // Facultatif : rend le curseur par-dessus les autres objets
+cursor.visible = false; // Caché par défaut
+
+// Raycaster pour détecter les intersections
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+// Écouteur pour le mouvement de la souris
+window.addEventListener('mousemove', (event) => {
+  // Conversion des coordonnées de la souris en coordonnées normalisées
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+  // Raycast à partir de la caméra
+  raycaster.setFromCamera(mouse, camera);
+
+  // Vérifie les intersections avec le mesh instancié
+  const instancedTopMesh = map.children[0]; // Mesh instancié contenant les hexagones
+  const intersects = raycaster.intersectObject(instancedTopMesh);
+
+  if (intersects.length > 0) {
+    const intersection = intersects[0];
+    const instanceId = intersection.instanceId;
+
+    if (instanceId !== undefined) {
+      // Récupère les coordonnées de l'instance et positionne le curseur
+      const matrix = new THREE.Matrix4();
+      instancedTopMesh.getMatrixAt(instanceId, matrix);
+      instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xffffff));
+
+      const position = new THREE.Vector3();
+      const quaternion = new THREE.Quaternion();
+      const scale = new THREE.Vector3();
+      matrix.decompose(position, quaternion, scale);
+
+      const hexagonHeight = scale.y;
+      const cursorHeightOffset = 3; // Ajustez cette valeur selon vos besoins
+
+      cursor.position.set(
+        position.x + map.position.x,
+        position.y + map.position.y + hexagonHeight / 2 + cursorHeightOffset,
+        position.z + map.position.z
+      );
+      cursor.visible = true;
+    }
+  } else {
+    cursor.visible = false; // Cache le curseur si aucune tuile n'est survolée
+  }
+});
+
 function init() {
-  // scene.add(new THREE.AxesHelper( 1500 ));
-  // scene.add( new THREE.DirectionalLightHelper( sunLight, 50 ) );
   scene.add(new THREE.AmbientLight(0x333333));
   scene.add(map);
   scene.add(waterSurface);
@@ -72,6 +133,7 @@ function init() {
       link.click();
     }
   });
+  scene.add(cursor);
   animate();
 }
 
@@ -91,11 +153,9 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }, false);
 
-document.addEventListener('click', selectAndHighlightNeighbors, false);
-
 let isRightMouseDown = false;
 let lastLevelingTime = 0;
-const levelingInterval = 1; // en millisecondes
+const levelingInterval = 1; // ms
 
 document.addEventListener('mousedown', onDocumentMouseDown, false);
 document.addEventListener('mouseup', onDocumentMouseUp, false);
@@ -137,8 +197,7 @@ function levelTiles(event) {
   const mouse = new THREE.Vector2();
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-  const raycaster = new THREE.Raycaster();
+ 
   raycaster.setFromCamera(mouse, camera);
 
   const instancedTopMesh = map.children[0];
@@ -182,43 +241,39 @@ function getTilesWithinDistance(q, r, maxDistance) {
       }
     }
   }
-  return tiles;
+  return tiles; 
 }
+
+const tempMatrix = new THREE.Matrix4();
+const tempPosition = new THREE.Vector3();
+const tempQuaternion = new THREE.Quaternion();
+const tempScale = new THREE.Vector3();
 
 function lowerTile(instanceId, distance) {
   const instancedTopMesh = map.children[0];
 
-  const matrix = new THREE.Matrix4();
-  instancedTopMesh.getMatrixAt(instanceId, matrix);
+  instancedTopMesh.getMatrixAt(instanceId, tempMatrix);
 
-  const position = new THREE.Vector3();
-  const quaternion = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  matrix.decompose(position, quaternion, scale);
+  tempMatrix.decompose(tempPosition, tempQuaternion, tempScale);
 
   // Calculer la quantité de réduction basée sur la distance (linéaire)
-  const maxReduction = 1; // La hauteur maximale à réduire pour la tuile centrale
+  const maxReduction = 5; // Hauteur maximale à réduire pour la tuile centrale
   const reduction = maxReduction * (1 - distance / 3);
 
   // Réduire la hauteur et ajuster la position en conséquence
-  scale.y = Math.max(0.1, scale.y - reduction);
-  position.y = scale.y / 2;
+  tempScale.y = Math.max(0.1, tempScale.y - reduction);
+  tempPosition.y = tempScale.y / 2;
 
   // Recomposer la matrice
-  matrix.compose(position, quaternion, scale);
-  instancedTopMesh.setMatrixAt(instanceId, matrix);
-
-  // Optionnel : mettre à jour la couleur pour indiquer le changement
-  // instancedTopMesh.setColorAt(instanceId, new THREE.Color(0x8B4513)); // Marron pour la terre abaissée
-  // instancedTopMesh.instanceColor.needsUpdate = true;
+  tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
+  instancedTopMesh.setMatrixAt(instanceId, tempMatrix);
 }
 
 document.body.appendChild(renderer.domElement);
 init();
 
-// Game main
+// Fonctions auxiliaires
 function getTileCoordinates(instanceId) {
-  console.log(instanceId);
   const row = Math.floor(instanceId / mapConfig.cols);
   const col = instanceId % mapConfig.cols;
   return gridToAxial(col, row);
@@ -226,45 +281,48 @@ function getTileCoordinates(instanceId) {
 
 function getInstanceIdFromCoordinates(q, r) {
   const { col, row } = axialToGrid(q, r); 
+  if (col < 0 || row < 0 || col >= mapConfig.cols || row >= mapConfig.rows) {
+    return undefined;
+  }
   const instanceId = row * mapConfig.cols + col;
   return instanceId;
 }
 
-function selectAndHighlightNeighbors(event){
-  event.preventDefault();
-  const rect = renderer.domElement.getBoundingClientRect();
 
-  const mouse = new THREE.Vector2();
-  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+// function selectAndHighlightNeighbors(event){
+//   event.preventDefault();
+//   const rect = renderer.domElement.getBoundingClientRect();
 
-  const raycaster = new THREE.Raycaster();
-  raycaster.setFromCamera(mouse, camera);
+//   const mouse = new THREE.Vector2();
+//   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+//   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-  const instancedTopMesh = map.children[0];
+//   raycaster.setFromCamera(mouse, camera);
 
-  const intersects = raycaster.intersectObject(instancedTopMesh); // Revert to selecting only the hex map layer
+//   const instancedTopMesh = map.children[0];
 
-  if (intersects.length > 0) {
-    const intersection = intersects[0];
-    const instanceId = intersection.instanceId;
+//   const intersects = raycaster.intersectObject(instancedTopMesh); // Revert to selecting only the hex map layer
 
-    if (instanceId !== undefined) {
-      // Highlight the selected tile
-      instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xcccccc));
-      instancedTopMesh.instanceColor.needsUpdate = true;
+//   if (intersects.length > 0) {
+//     const intersection = intersects[0];
+//     const instanceId = intersection.instanceId;
 
-      // Get and highlight neighbors
-      const { q, r } = getTileCoordinates(instanceId); 
-      const neighbors = getValidNeighbors(q, r, mapConfig.cols, mapConfig.rows);
+//     if (instanceId !== undefined) {
+//       // Highlight the selected tile
+//       instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xcccccc));
+//       instancedTopMesh.instanceColor.needsUpdate = true;
 
-      neighbors.forEach(([nq, nr]) => {
-        const neighborInstanceId = getInstanceIdFromCoordinates(nq, nr); 
-        if (neighborInstanceId !== undefined) {
-          instancedTopMesh.setColorAt(neighborInstanceId, new THREE.Color(0xffffff));
-        }
-      });
-      instancedTopMesh.instanceColor.needsUpdate = true;
-    }
-  }
-}
+//       // Get and highlight neighbors
+//       const { q, r } = getTileCoordinates(instanceId); 
+//       const neighbors = getValidNeighbors(q, r, mapConfig.cols, mapConfig.rows);
+
+//       neighbors.forEach(([nq, nr]) => {
+//         const neighborInstanceId = getInstanceIdFromCoordinates(nq, nr); 
+//         if (neighborInstanceId !== undefined) {
+//           instancedTopMesh.setColorAt(neighborInstanceId, new THREE.Color(0xffffff));
+//         }
+//       });
+//       instancedTopMesh.instanceColor.needsUpdate = true;
+//     }
+//   }
+// }

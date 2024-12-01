@@ -23,43 +23,9 @@ export function useMap(opt, gridWidth, gridHeight){
     gridHeight
   }
 
-  // This value is required for replace cloud y position,
+  // Cette valeur est requise pour remplacer la position Y des nuages,
   let maxHeight = 0;
   let hexs = [];
-
-  function getTileCoordinates(instanceId) {
-    const row = Math.floor(instanceId / options.cols);
-    const col = instanceId % options.cols;
-    return gridToAxial(col, row);
-  }
-
-  function generateExistingMap(){
-    const hexsT = [
-      {index: 0, height: 100, ...getTileCoordinates(0)},
-      {index: 1, height: 100, ...getTileCoordinates(1)},
-      {index: 2, height: 100, ...getTileCoordinates(2)},
-      {index: 3, height: 100, ...getTileCoordinates(3)},
-      {index: 4, height: 100, ...getTileCoordinates(4)},
-      {index: 5, height: 100, ...getTileCoordinates(5)},
-      {index: 6, height: 100, ...getTileCoordinates(6)},
-      {index: 7, height: 100, ...getTileCoordinates(7)},
-      {index: 8, height: 100, ...getTileCoordinates(8)},
-      {index: 9, height: 100, ...getTileCoordinates(9)},
-    ]
-
-    const hexWidth = Math.sqrt(3) * options.hexRadius;
-    const verticalSpacing = options.hexRadius * 1.5;
-
-    hexsT.forEach((hex) => {
-      const x = hex.col * hexWidth + (hex.row % 2 === 1 ? hexWidth / 2 : 0);
-      const z = hex.row * verticalSpacing;
-      const matrix = new THREE.Matrix4();
-      matrix.setPosition(x, hex.height / 2, z);
-      matrix.scale(new THREE.Vector3(1, hex.height, 1));
-      instancedTopMesh.setMatrixAt(hex.index, matrix);
-      instancedTopMesh.setColorAt(hex.index, new THREE.Color(`rgb(0, ${Math.round(hex.height) * 2}, 0)`));
-    })
-  }
 
   function generateMap() {
     map.clear();
@@ -80,7 +46,7 @@ export function useMap(opt, gridWidth, gridHeight){
           1,                      // Hauteur initiale de l'hexagone (sera modifiée dynamiquement)
           6,                      // Nombre de segments radiaux pour un hexagone
           1,                      // Hauteur segmentée en 1 seul segment
-          false                   // Ouvrir le haut et le bas pour pouvoir manipuler les sommets
+          false                   // Ne pas ouvrir le haut et le bas pour manipuler les sommets
     ), material, options.rows * options.cols);
     instancedTopMesh.castShadow = true;
     instancedTopMesh.receiveShadow = true;
@@ -132,7 +98,7 @@ export function useMap(opt, gridWidth, gridHeight){
         hexs.push({ 
           index,
           properties: { type: 'ground'},
-          onMap: { row, col, ...gridToAxial(row, col), height },
+          onMap: { row, col, ...gridToAxial(col, row), height },
         });
         index++;
       }
@@ -148,6 +114,7 @@ export function useMap(opt, gridWidth, gridHeight){
       }
     });
 
+    // Positionner la carte en tenant compte du décalage
     map.position.set(-options.gridWidth / 2 + 2, 0, -options.gridHeight / 2 + 5);
   }
 
