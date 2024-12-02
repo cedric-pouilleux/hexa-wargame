@@ -8,6 +8,22 @@ export function axialToGrid(q, r) {
     return { col, row: r };
 }
 
+export function getTileCoordinates(instanceId, cols) {
+  const row = Math.floor(instanceId / cols);
+  const col = instanceId % cols;
+  return gridToAxial(col, row);
+}
+
+export function getInstanceIdFromCoordinates(q, r, cols, rows) {
+  const { col, row } = axialToGrid(q, r); 
+  if (col < 0 || row < 0 || col >= cols || row >= rows) {
+    return undefined;
+  }
+  const instanceId = row * cols + col;
+  return instanceId;
+}
+
+
 export function getValidNeighbors(q, r, cols, rows) {
     const directions = [
         [+1, 0],    // Droite
