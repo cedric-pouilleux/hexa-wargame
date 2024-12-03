@@ -1,6 +1,9 @@
-import * as THREE from 'three';
-import { TextureLoader} from 'three';
-import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare.js';
+import * as THREE from "three";
+import { TextureLoader } from "three";
+import {
+  Lensflare,
+  LensflareElement,
+} from "three/examples/jsm/objects/Lensflare.js";
 
 export function useSun() {
   let sunAngle = 1.8;
@@ -24,8 +27,8 @@ export function useSun() {
   sunLight.shadow.camera.updateProjectionMatrix();
 
   const textureLoader = new TextureLoader();
-  const textureFlare0 = textureLoader.load( "../../assets/lensflare0.png" );
-  const textureFlare3 = textureLoader.load( "../../assets/lensflare3.png" );
+  const textureFlare0 = textureLoader.load("../../assets/lensflare0.png");
+  const textureFlare3 = textureLoader.load("../../assets/lensflare3.png");
   //const textureFlare2 = textureLoader.load( "../../assets/lensflare3.png" );
   sunLight.lookAt(0, 0, 0);
 
@@ -61,7 +64,6 @@ export function useSun() {
 
   return {
     sunLight,
-    updateSun
-  }
-
+    updateSun,
+  };
 }

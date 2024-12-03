@@ -2,35 +2,37 @@
  * Lens Flare by Anderson Mancini
  * Based on: https://github.com/ektogamat/R3F-Ultimate-Lens-Flare
  */
-import * as THREE from 'three'
-import { easing } from 'maath'
+import * as THREE from "three";
+import { easing } from "maath";
 /**
  * @param {THREE.Vector3 | undefined} lensPosition The date
  * @param {Boolean} debug The string
  * @param {Number | undefined} opacity The string
  */
 
-export let LensFlareParams = {}
+export let LensFlareParams = {};
 
 export function LensFlareEffect(lensPosition, opacity) {
   LensFlareParams = {
     lensPosition: lensPosition ? lensPosition : new THREE.Vector3(25, 2, -80),
     opacity: opacity ? opacity : 0.8,
-  }
+  };
 
-  const clock = new THREE.Clock()
-  const screenPosition = LensFlareParams.lensPosition
-  const viewport = new THREE.Vector4()
-  const oldOpacity = LensFlareParams.opacity
+  const clock = new THREE.Clock();
+  const screenPosition = LensFlareParams.lensPosition;
+  const viewport = new THREE.Vector4();
+  const oldOpacity = LensFlareParams.opacity;
 
-  let internalOpacity = oldOpacity
-  let flarePosition = new THREE.Vector3()
-  const raycaster = new THREE.Raycaster()
+  let internalOpacity = oldOpacity;
+  let flarePosition = new THREE.Vector3();
+  const raycaster = new THREE.Raycaster();
 
   const lensFlareMaterial = new THREE.ShaderMaterial({
     uniforms: {
       iTime: { value: 0 },
-      iResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      iResolution: {
+        value: new THREE.Vector2(window.innerWidth, window.innerHeight),
+      },
       lensPosition: { value: new THREE.Vector2(0, 0) },
       enabled: { value: true },
       colorGain: { value: new THREE.Color(95, 12, 10) },
@@ -456,85 +458,98 @@ export function LensFlareEffect(lensPosition, opacity) {
     depthWrite: false,
     depthTest: false,
     blending: THREE.AdditiveBlending,
-    name: 'LensFlareShader',
-  })
+    name: "LensFlareShader",
+  });
 
   lensFlareMaterial.onBeforeRender = function (renderer, scene, camera) {
-    const elapsedTime = clock.getElapsedTime()
+    const elapsedTime = clock.getElapsedTime();
 
-    renderer.getCurrentViewport(viewport)
-    lensFlareContainer.lookAt(camera)
+    renderer.getCurrentViewport(viewport);
+    lensFlareContainer.lookAt(camera);
 
-    lensFlareMaterial.uniforms.iResolution.value.set(viewport.z, viewport.w)
+    lensFlareMaterial.uniforms.iResolution.value.set(viewport.z, viewport.w);
 
     if (lensFlareMaterial.uniforms.followMouse.value === true) {
-      lensFlareMaterial.uniforms.lensPosition.value.set(mouse.x, mouse.y)
+      lensFlareMaterial.uniforms.lensPosition.value.set(mouse.x, mouse.y);
     } else {
-      const projectedPosition = screenPosition.clone()
-      projectedPosition.project(camera)
+      const projectedPosition = screenPosition.clone();
+      projectedPosition.project(camera);
 
-      flarePosition.x = projectedPosition.x
-      flarePosition.y = projectedPosition.y
-      flarePosition.z = projectedPosition.z
+      flarePosition.x = projectedPosition.x;
+      flarePosition.y = projectedPosition.y;
+      flarePosition.z = projectedPosition.z;
 
       if (flarePosition.z < 1) {
-        lensFlareMaterial.uniforms.lensPosition.value.set(flarePosition.x, flarePosition.y)
+        lensFlareMaterial.uniforms.lensPosition.value.set(
+          flarePosition.x,
+          flarePosition.y,
+        );
       }
 
-      raycaster.setFromCamera(projectedPosition, camera)
-      const intersects = raycaster.intersectObjects(scene.children, true)
-      checkTransparency(intersects)
-      
+      raycaster.setFromCamera(projectedPosition, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+      checkTransparency(intersects);
     }
 
-    lensFlareMaterial.uniforms.iTime.value = elapsedTime
-    easing.damp(lensFlareMaterial.uniforms.opacity, 'value', internalOpacity, 0.007, clock.getDelta())
-  }
+    lensFlareMaterial.uniforms.iTime.value = elapsedTime;
+    easing.damp(
+      lensFlareMaterial.uniforms.opacity,
+      "value",
+      internalOpacity,
+      0.007,
+      clock.getDelta(),
+    );
+  };
 
   /**
    * Transparency check
    */
-  function checkTransparency(intersects){
+  function checkTransparency(intersects) {
     if (intersects[0]) {
-        if (intersects[0].object) {
-          if (intersects[0].object.material.transmission) {
-            if (intersects[0].object.material.transmission > 0.2) {
-              internalOpacity = oldOpacity * (intersects[0].object.material.transmission * 0.5)
-            } else {
-              internalOpacity = 0
+      if (intersects[0].object) {
+        if (intersects[0].object.material.transmission) {
+          if (intersects[0].object.material.transmission > 0.2) {
+            internalOpacity =
+              oldOpacity * (intersects[0].object.material.transmission * 0.5);
+          } else {
+            internalOpacity = 0;
+          }
+        } else if (intersects[0].object.material.transmission === 0) {
+          internalOpacity = 0;
+        } else if (intersects[0].object.material.transmission === undefined) {
+          if (intersects[0].object.material.transparent) {
+            if (intersects[0].object.material.opacity < 0.98) {
+              internalOpacity =
+                oldOpacity / (intersects[0].object.material.opacity * 10);
             }
-          } else if (intersects[0].object.material.transmission === 0) {
-            internalOpacity = 0
-          } else if (intersects[0].object.material.transmission === undefined) {
-            if (intersects[0].object.material.transparent) {
-              if (intersects[0].object.material.opacity < 0.98) {
-                internalOpacity = oldOpacity / (intersects[0].object.material.opacity * 10)
-              }
+          } else {
+            if (intersects[0].object.userData === "no-occlusion") {
+              internalOpacity = oldOpacity;
             } else {
-              if (intersects[0].object.userData === 'no-occlusion') {
-                internalOpacity = oldOpacity
-              } else {
-                internalOpacity = 0
-              }
+              internalOpacity = 0;
             }
           }
         }
-      } else {
-        internalOpacity = oldOpacity
       }
+    } else {
+      internalOpacity = oldOpacity;
+    }
   }
 
   /**
    * Mouse
    */
-  const mouse = new THREE.Vector2()
+  const mouse = new THREE.Vector2();
 
-  window.addEventListener('mousemove', (event) => {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
-  })
+  window.addEventListener("mousemove", (event) => {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  });
 
-  const lensFlareContainer = new THREE.Mesh(new THREE.PlaneGeometry(2, 2, 1, 1), lensFlareMaterial)
+  const lensFlareContainer = new THREE.Mesh(
+    new THREE.PlaneGeometry(2, 2, 1, 1),
+    lensFlareMaterial,
+  );
 
-  return lensFlareContainer
+  return lensFlareContainer;
 }

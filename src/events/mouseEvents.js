@@ -1,6 +1,9 @@
 // src/events/mouseEvents.js
-import * as THREE from 'three';
-import { getTileCoordinates, getInstanceIdFromCoordinates } from '../utils/grid.js';
+import * as THREE from "three";
+import {
+  getTileCoordinates,
+  getInstanceIdFromCoordinates,
+} from "../utils/grid.js";
 
 let isRightMouseDown = false;
 let lastLevelingTime = 0;
@@ -8,7 +11,8 @@ const levelingInterval = 1; // ms
 const mouse = new THREE.Vector2();
 
 export function handleMouseDown(event) {
-  if (event.button === 2) { // 2 est le bouton droit
+  if (event.button === 2) {
+    // 2 est le bouton droit
     isRightMouseDown = true;
   }
 }
@@ -19,7 +23,16 @@ export function handleMouseUp(event) {
   }
 }
 
-export function handleMouseMove(event, raycaster, map, camera, renderer, cursor, cols, rows) {
+export function handleMouseMove(
+  event,
+  raycaster,
+  map,
+  camera,
+  renderer,
+  cursor,
+  cols,
+  rows,
+) {
   if (isRightMouseDown) {
     const currentTime = Date.now();
     if (currentTime - lastLevelingTime > levelingInterval) {
@@ -59,7 +72,7 @@ export function handleMouseMove(event, raycaster, map, camera, renderer, cursor,
       cursor.position.set(
         position.x + map.position.x,
         position.y + map.position.y + hexagonHeight / 2 + cursorHeightOffset,
-        position.z + map.position.z
+        position.z + map.position.z,
       );
       cursor.visible = true;
     }
@@ -69,7 +82,8 @@ export function handleMouseMove(event, raycaster, map, camera, renderer, cursor,
 }
 
 export function handleClick(event, raycaster, map, mapConfig) {
-  if (event.button === 0) { // 0 est le bouton gauche
+  if (event.button === 0) {
+    // 0 est le bouton gauche
     selectAndHighlightNeighbors(event, raycaster, map, mapConfig);
   }
 }
@@ -98,7 +112,12 @@ function levelTiles(event, raycaster, map, renderer, camera, cols, rows) {
       const tilesToLevel = getTilesWithinDistance(q, r, 3);
 
       tilesToLevel.forEach(({ q: nq, r: nr, distance }) => {
-        const neighborInstanceId = getInstanceIdFromCoordinates(nq, nr, cols, rows);
+        const neighborInstanceId = getInstanceIdFromCoordinates(
+          nq,
+          nr,
+          cols,
+          rows,
+        );
         if (neighborInstanceId !== undefined) {
           lowerTile(neighborInstanceId, distance, instancedTopMesh);
         }
@@ -113,7 +132,11 @@ function getTilesWithinDistance(q, r, maxDistance) {
   // Récupère les tuiles dans une certaine distance
   const tiles = [];
   for (let dx = -maxDistance; dx <= maxDistance; dx++) {
-    for (let dy = Math.max(-maxDistance, -dx - maxDistance); dy <= Math.min(maxDistance, -dx + maxDistance); dy++) {
+    for (
+      let dy = Math.max(-maxDistance, -dx - maxDistance);
+      dy <= Math.min(maxDistance, -dx + maxDistance);
+      dy++
+    ) {
       const dz = -dx - dy;
       const distance = (Math.abs(dx) + Math.abs(dy) + Math.abs(dz)) / 2;
       if (distance <= maxDistance) {
@@ -146,40 +169,43 @@ function lowerTile(instanceId, distance, instancedTopMesh) {
   instancedTopMesh.setMatrixAt(instanceId, tempMatrix);
 }
 
-// function selectAndHighlightNeighbors(event){
-//   event.preventDefault();
-//   const rect = renderer.domElement.getBoundingClientRect();
+function selectAndHighlightNeighbors(event) {
+  event.preventDefault();
+  const rect = renderer.domElement.getBoundingClientRect();
 
-//   const mouse = new THREE.Vector2();
-//   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-//   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  const mouse = new THREE.Vector2();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-//   raycaster.setFromCamera(mouse, camera);
+  raycaster.setFromCamera(mouse, camera);
 
-//   const instancedTopMesh = map.children[0];
+  const instancedTopMesh = map.children[0];
 
-//   const intersects = raycaster.intersectObject(instancedTopMesh); // Revert to selecting only the hex map layer
+  const intersects = raycaster.intersectObject(instancedTopMesh); // Revert to selecting only the hex map layer
 
-//   if (intersects.length > 0) {
-//     const intersection = intersects[0];
-//     const instanceId = intersection.instanceId;
+  if (intersects.length > 0) {
+    const intersection = intersects[0];
+    const instanceId = intersection.instanceId;
 
-//     if (instanceId !== undefined) {
-//       // Highlight the selected tile
-//       instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xcccccc));
-//       instancedTopMesh.instanceColor.needsUpdate = true;
+    if (instanceId !== undefined) {
+      // Highlight the selected tile
+      instancedTopMesh.setColorAt(instanceId, new THREE.Color(0xcccccc));
+      instancedTopMesh.instanceColor.needsUpdate = true;
 
-//       // Get and highlight neighbors
-//       const { q, r } = getTileCoordinates(instanceId); 
-//       const neighbors = getValidNeighbors(q, r, mapConfig.cols, mapConfig.rows);
+      // Get and highlight neighbors
+      const { q, r } = getTileCoordinates(instanceId);
+      const neighbors = getValidNeighbors(q, r, mapConfig.cols, mapConfig.rows);
 
-//       neighbors.forEach(([nq, nr]) => {
-//         const neighborInstanceId = getInstanceIdFromCoordinates(nq, nr); 
-//         if (neighborInstanceId !== undefined) {
-//           instancedTopMesh.setColorAt(neighborInstanceId, new THREE.Color(0xffffff));
-//         }
-//       });
-//       instancedTopMesh.instanceColor.needsUpdate = true;
-//     }
-//   }
-// }
+      neighbors.forEach(([nq, nr]) => {
+        const neighborInstanceId = getInstanceIdFromCoordinates(nq, nr);
+        if (neighborInstanceId !== undefined) {
+          instancedTopMesh.setColorAt(
+            neighborInstanceId,
+            new THREE.Color(0xffffff),
+          );
+        }
+      });
+      instancedTopMesh.instanceColor.needsUpdate = true;
+    }
+  }
+}
